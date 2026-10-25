@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PremDue – Unlock</title>
+<style>
+  :root { --bg:#000; --ink:#f9f8f5; --muted:#a6a7b4; --surface:#111216; --line:#303139; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:440px; margin:0 auto; padding:48px 16px; }
+  h1 { font:400 34px/1.2 Georgia,"Times New Roman",serif; margin:0 0 8px; }
+  p { color:var(--muted); margin:0 0 16px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:20px; margin:24px 0; }
+  .price { font-size:40px; font-weight:700; color:var(--ink); }
+  button { width:100%; min-height:52px; border:0; border-radius:12px; background:var(--ink); color:#000; font:700 16px system-ui,sans-serif; cursor:pointer; }
+  button:disabled { opacity:.5; }
+  #msg { margin-top:16px; color:var(--ink); }
+  a { color:var(--ink); }
+  small { color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>PremDue</h1>
+  <p>Due lists, reminders and plan presentations for LIC agents.</p>
+  <div class="card">
+    <div class="price">₹299</div>
+    <p>One time. All inclusive. No subscription.</p>
+    <button id="pay" disabled>Pay ₹299</button>
+    <div id="msg"></div>
+  </div>
+  <small>Payments are processed by Razorpay. Your customers' data never leaves your phone. <a href="privacy.html">Privacy policy</a></small>
+</main>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+  const API = "https://3v33izps4qsmehcru2h75hqkna0mwnkw.lambda-url.ap-south-1.on.aws";
+  const q = new URLSearchParams(location.search);
+  const order = q.get("order") || "", key = q.get("key") || "";
+  const btn = document.getElementById("pay"), msg = document.getElementById("msg");
+  const say = t => { msg.textContent = t; };
+  if (!/^order_\w+$/.test(order) || !/^rzp_(test|live)_\w+$/.test(key)) {
+    say("Open this page from the Pay button inside the PremDue app.");
+  } else {
+    btn.disabled = false;
+    btn.onclick = () => new Razorpay({
+      key, order_id: order, name: "PremDue", description: "Lifetime unlock", currency: "INR",
+      theme: { color: "#111216" },
+      handler: async r => {
+        btn.disabled = true; say("Confirming payment…");
+        try {
+          const res = await fetch(API + "/verify", { method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ order_id: r.razorpay_order_id, payment_id: r.razorpay_payment_id, signature: r.razorpay_signature }) });
+          const j = await res.json();
+          say(j.paid ? "Payment successful ✓ Go back to PremDue and tap “Check again”." : "Payment received. It may take a minute to confirm — go back to PremDue and tap “Check again”.");
+        } catch (e) { say("Payment received. Go back to PremDue and tap “Check again”."); }
+      },
+      modal: { ondismiss: () => say("Payment not completed.") }
+    }).open();
+  }
+</script>
+</body>
+</html>
